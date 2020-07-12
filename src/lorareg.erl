@@ -12,7 +12,8 @@
 
 -type us() :: {eu, [#sent_packet{}]}.
 
-%% Time over which we keep sent packet statistics for duty-cycle limited regions (EU).
+%% Time over which we keep sent packet statistics for duty-cycle
+%% limited regions (EU).
 %%
 %% In order to calculate duty cycle, we track every single
 %% transmission 'now' and the previous DUTY_CYCLE_PERIOD of time. Note
@@ -33,6 +34,18 @@
 %% This function does not sent or transmit itself. It assumes a packet
 %% was sent with DataRate and Size outside of this module
 %% successfully.
+-spec track_sent(
+    eu() | us(),
+    number(),
+    number(),
+    integer(),
+    integer(),
+    integer(),
+    boolean(),
+    integer(),
+    boolean()
+) ->
+    eu() | us().
 track_sent(
     {Region, SentPackets},
     Frequency,
@@ -59,7 +72,8 @@ track_sent(
     },
     {Region, [NewSent | SentPackets]}.
 
-%% @doc Returns total time on air for packet sent with given parameters.
+%% @doc Returns total time on air for packet sent with given
+%% parameters.
 %%
 %% See Semtech Appnote AN1200.13, "LoRa Modem Designer's Guide"
 -spec time_on_air(
