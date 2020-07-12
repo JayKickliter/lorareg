@@ -1,6 +1,6 @@
 -module(lorareg).
 
--export([new/1, sent/9, time_on_air/7]).
+-export([new/1, track_sent/9, time_on_air/7]).
 
 -record(sent_packet, {
     sent_time :: number(),
@@ -33,7 +33,7 @@
 %% This function does not sent or transmit itself. It assumes a packet
 %% was sent with DataRate and Size outside of this module
 %% successfully.
-sent(
+track_sent(
     {Region, SentPackets},
     Frequency,
     Bandwidth,
@@ -92,7 +92,7 @@ time_on_air(
     SymbolDuration * (4.25 + PreambleSymbols + PayloadSymbols).
 
 %% @doc Returns the number of payload symbols required to send payload.
--spec payload_symbols(integer(), number(), boolean(), boolean(), integer()) -> integer().
+-spec payload_symbols(integer(), integer(), boolean(), integer(), boolean()) -> number().
 payload_symbols(
     SpreadingFactor,
     CodeRate,
