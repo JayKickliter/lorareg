@@ -1,11 +1,11 @@
 -module(lorareg).
 
--export([new/1, sent/4, time_on_air/2]).
+-export([new/1, sent/9, time_on_air/7]).
 
 -record(sent_packet, {
-    sent_time :: integer(),
-    time_on_air :: integer(),
-    frequency :: integer()
+    sent_time :: number(),
+    time_on_air :: number(),
+    frequency :: number()
 }).
 
 -type eu() :: {eu, [#sent_packet{}]}.
@@ -33,20 +33,96 @@
 %% This function does not sent or transmit itself. It assumes a packet
 %% was sent with DataRate and Size outside of this module
 %% successfully.
--spec sent(eu() | us(), integer(), number(), integer()) -> eu() | us().
-sent({Region, SentPackets}, Frequency, DataRate, Size) ->
+sent(
+    {Region, SentPackets},
+    Frequency,
+    Bandwidth,
+    SpreadingFactor,
+    CodeRate,
+    PreambleSymbols,
+    ExplicitHeader,
+    PayloadLen,
+    LowDatarateOptimized
+) ->
     NewSent = #sent_packet{
         frequency = Frequency,
         sent_time = erlang:monotonic_time(),
-        time_on_air = time_on_air(DataRate, Size)
+        time_on_air = time_on_air(
+            Bandwidth,
+            SpreadingFactor,
+            CodeRate,
+            PreambleSymbols,
+            ExplicitHeader,
+            PayloadLen,
+            LowDatarateOptimized
+        )
     },
-    {Region, SentPackets ++ [NewSent]}.
+    {Region, [NewSent | SentPackets]}.
 
--spec time_on_air(number(), integer()) -> integer().
-time_on_air(_DataRate, _Size) ->
-    100.
+%% @doc Returns total time on air for packet sent with given parameters.
+%%
+%% See Semtech Appnote AN1200.13, "LoRa Modem Designer's Guide"
+-spec time_on_air(
+    number(),
+    number(),
+    integer(),
+    integer(),
+    boolean(),
+    integer(),
+    boolean()
+) ->
+    float().
+time_on_air(
+    Bandwidth,
+    SpreadingFactor,
+    CodeRate,
+    PreambleSymbols,
+    ExplicitHeader,
+    PayloadLen,
+    LowDatarateOptimized
+) ->
+    SymbolDuration = symbol_duration(Bandwidth, SpreadingFactor),
+    PayloadSymbols = payload_symbols(
+        SpreadingFactor,
+        CodeRate,
+        ExplicitHeader,
+        PayloadLen,
+        LowDatarateOptimized
+    ),
+    SymbolDuration * (4.25 + PreambleSymbols + PayloadSymbols).
+
+%% @doc Returns the number of payload symbols required to send payload.
+-spec payload_symbols(integer(), number(), boolean(), boolean(), integer()) -> integer().
+payload_symbols(
+    SpreadingFactor,
+    CodeRate,
+    ExplicitHeader,
+    PayloadLen,
+    LowDatarateOptimized
+) ->
+    EH = b2n(ExplicitHeader),
+    LDO = b2n(LowDatarateOptimized),
+    8 +
+        (erlang:max(
+            math:ceil(
+                (8 * PayloadLen - 4 * SpreadingFactor + 28 +
+                    16 - 20 * (1 - EH)) /
+                    (4 * (SpreadingFactor - 2 * LDO))
+            ) * (CodeRate),
+            0
+        )).
+
+-spec symbol_duration(number(), number()) -> float().
+symbol_duration(Bandwidth, SpreadingFactor) ->
+    math:pow(2, SpreadingFactor) / Bandwidth.
 
 new(eu) ->
     {eu, []};
 new(us) ->
     {us, []}.
+
+-spec b2n(atom()) -> integer().
+b2n(false) ->
+    0;
+b2n(true) ->
+    1.
