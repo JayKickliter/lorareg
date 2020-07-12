@@ -1,6 +1,11 @@
 -module(lorareg).
 
--export([new/1, track_sent/9, time_on_air/7]).
+-export([
+    new/1,
+    time_on_air/7,
+    track_sent/3,
+    track_sent/9
+]).
 
 -record(sent_packet, {
     sent_time :: number(),
@@ -28,12 +33,9 @@
 %% Time over which enforce MAX_DWELL_TIME.
 -define(DWELL_TIME_PERIOD, {seconds, 20}).
 
-%% @doc Updates State with time-on-air information calculated from
-%% DataRate and Size.
+%% @doc Updates State with time-on-air information.
 %%
-%% This function does not sent or transmit itself. It assumes a packet
-%% was sent with DataRate and Size outside of this module
-%% successfully.
+%% This function does not sent or transmit itself.
 -spec track_sent(
     eu() | us(),
     number(),
@@ -47,7 +49,7 @@
 ) ->
     eu() | us().
 track_sent(
-    {Region, SentPackets},
+    Handle,
     Frequency,
     Bandwidth,
     SpreadingFactor,
@@ -57,20 +59,35 @@ track_sent(
     PayloadLen,
     LowDatarateOptimized
 ) ->
+    TimeOnAir = time_on_air(
+        Bandwidth,
+        SpreadingFactor,
+        CodeRate,
+        PreambleSymbols,
+        ExplicitHeader,
+        PayloadLen,
+        LowDatarateOptimized
+    ),
+    track_sent(Handle, Frequency, TimeOnAir).
+
+-spec track_sent(eu() | us(), number(), number()) -> eu() | us().
+track_sent({Region, SentPackets}, Frequency, TimeOnAir) ->
+    Now = erlang:monotonic_time(millisecond),
     NewSent = #sent_packet{
         frequency = Frequency,
-        sent_time = erlang:monotonic_time(),
-        time_on_air = time_on_air(
-            Bandwidth,
-            SpreadingFactor,
-            CodeRate,
-            PreambleSymbols,
-            ExplicitHeader,
-            PayloadLen,
-            LowDatarateOptimized
-        )
+        sent_time = Now,
+        time_on_air = TimeOnAir
     },
-    {Region, [NewSent | SentPackets]}.
+    {Region, [NewSent | trim_sent(Region, SentPackets, Now)]}.
+
+trim_sent(us, SentPackets, Now) ->
+    %% TODO: use DWELL_TIME_PERIOD instead of hardcoded value
+    Pred = fun (Sent) -> Sent#sent_packet.sent_time + 20000 > Now end,
+    lists:takewhile(Pred, SentPackets);
+trim_sent(eu, SentPackets, Now) ->
+    %% TODO: use DUTY_CYCLE_PERIOD instead of hardcoded value
+    Pred = fun (Sent) -> Sent#sent_packet.sent_time + 3600000 > Now end,
+    lists:takewhile(Pred, SentPackets).
 
 %% @doc Returns total time on air for packet sent with given
 %% parameters.
