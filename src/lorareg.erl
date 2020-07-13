@@ -16,11 +16,9 @@
     frequency :: number()
 }).
 
--type eu() :: {eu, list(#sent_packet{})}.
+-type region() :: eu | us.
 
--type us() :: {eu, list(#sent_packet{})}.
-
--type handle() :: eu() | us().
+-type handle() :: {region(), list(#sent_packet{})}.
 
 %% @doc Time over which we keep sent packet statistics for duty-cycle
 %% limited regions (EU).
@@ -89,7 +87,7 @@ track_sent({Region, SentPackets}, Frequency, TimeOnAir) ->
 
 %% @doc trims list of previous transmissions that are too old and no
 %% longer needed to compute regulatory compliance.
--spec trim_sent(eu | us, list(#sent_packet{}), integer()) -> list(#sent_packet{}).
+-spec trim_sent(region(), list(#sent_packet{}), integer()) -> list(#sent_packet{}).
 trim_sent(us, SentPackets, Now) ->
     CutoffTime = Now - ?DWELL_TIME_PERIOD_MS,
     Pred = fun (Sent) -> Sent#sent_packet.sent_time > CutoffTime end,
