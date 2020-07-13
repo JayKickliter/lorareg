@@ -42,15 +42,15 @@
 %%
 %% This function does not send/transmit itself.
 -spec track_sent(
-    handle(),
-    number(),
-    number(),
-    integer(),
-    integer(),
-    integer(),
-    boolean(),
-    integer(),
-    boolean()
+    Handle :: handle(),
+    Frequency :: number(),
+    Bandwidth :: number(),
+    SpreadingFactor :: integer(),
+    CodeRate :: integer(),
+    PreambleSymbols :: integer(),
+    ExplicitHeader :: boolean(),
+    PayloadLen :: integer(),
+    LowDatarateOptimized :: boolean()
 ) ->
     handle().
 track_sent(
@@ -133,13 +133,13 @@ dwell_time([], _CutoffTime, _Frequency, Acc) ->
 %%
 %% See Semtech Appnote AN1200.13, "LoRa Modem Designer's Guide"
 -spec time_on_air(
-    number(),
-    number(),
-    integer(),
-    integer(),
-    boolean(),
-    integer(),
-    boolean()
+    Bandwidth :: number(),
+    SpreadingFactor :: number(),
+    CodeRate :: integer(),
+    PreambleSymbols :: integer(),
+    ExplicitHeader :: boolean(),
+    PayloadLen :: integer(),
+    LowDatarateOptimized :: boolean()
 ) ->
     float().
 time_on_air(
