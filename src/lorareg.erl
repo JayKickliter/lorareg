@@ -1,6 +1,9 @@
 -module(lorareg).
 
 -export([
+    can_send/2,
+    can_send/3,
+    dwell_time/3,
     new/1,
     time_on_air/7,
     track_sent/3,
@@ -13,31 +16,35 @@
     frequency :: number()
 }).
 
--type eu() :: {eu, [#sent_packet{}]}.
+-type eu() :: {eu, list(#sent_packet{})}.
 
--type us() :: {eu, [#sent_packet{}]}.
+-type us() :: {eu, list(#sent_packet{})}.
 
-%% Time over which we keep sent packet statistics for duty-cycle
+-type handle() :: eu() | us().
+
+%% @doc Time over which we keep sent packet statistics for duty-cycle
 %% limited regions (EU).
 %%
 %% In order to calculate duty cycle, we track every single
-%% transmission 'now' and the previous DUTY_CYCLE_PERIOD of time. Note
-%% that 'now' is always changing and that transmissions older than
-%% DUTY_CYCLE_PERIOD are only untracked when updating state or
-%% calculating duty-cycle.
--define(DUTY_CYCLE_PERIOD, {hour, 1}).
+%% transmission 'now' and the previous DUTY_CYCLE_PERIOD_MS of
+%% time. Note that 'now' is always changing and that transmissions
+%% older than DUTY_CYCLE_PERIOD_MS are only untracked when updating
+%% state or calculating duty-cycle.
+-define(DUTY_CYCLE_PERIOD_MS, 3600000).
 
 %% Maximum time on air for dell-time limited regions (US).
--define(MAX_DWELL_TIME, {millisecond, 400}).
-
-%% Time over which enforce MAX_DWELL_TIME.
--define(DWELL_TIME_PERIOD, {seconds, 20}).
-
-%% @doc Updates State with time-on-air information.
 %%
-%% This function does not sent or transmit itself.
+%% See 47 CFR 15.247.
+-define(MAX_DWELL_TIME_MS, 400).
+
+%% Time over which enforce MAX_DWELL_TIME_MS.
+-define(DWELL_TIME_PERIOD_MS, 20000).
+
+%% Updates Handle with time-on-air information.
+%%
+%% This function does not send/transmit itself.
 -spec track_sent(
-    eu() | us(),
+    handle(),
     number(),
     number(),
     integer(),
@@ -47,7 +54,7 @@
     integer(),
     boolean()
 ) ->
-    eu() | us().
+    handle().
 track_sent(
     Handle,
     Frequency,
@@ -70,7 +77,7 @@ track_sent(
     ),
     track_sent(Handle, Frequency, TimeOnAir).
 
--spec track_sent(eu() | us(), number(), number()) -> eu() | us().
+-spec track_sent(handle(), number(), number()) -> handle().
 track_sent({Region, SentPackets}, Frequency, TimeOnAir) ->
     Now = erlang:monotonic_time(millisecond),
     NewSent = #sent_packet{
@@ -80,14 +87,48 @@ track_sent({Region, SentPackets}, Frequency, TimeOnAir) ->
     },
     {Region, [NewSent | trim_sent(Region, SentPackets, Now)]}.
 
+%% @doc trims list of previous transmissions that are too old and no
+%% longer needed to compute regulatory compliance.
+-spec trim_sent(eu | us, list(#sent_packet{}), integer()) -> list(#sent_packet{}).
 trim_sent(us, SentPackets, Now) ->
-    %% TODO: use DWELL_TIME_PERIOD instead of hardcoded value
-    Pred = fun (Sent) -> Sent#sent_packet.sent_time + 20000 > Now end,
+    CutoffTime = Now - ?DWELL_TIME_PERIOD_MS,
+    Pred = fun (Sent) -> Sent#sent_packet.sent_time > CutoffTime end,
     lists:takewhile(Pred, SentPackets);
 trim_sent(eu, SentPackets, Now) ->
-    %% TODO: use DUTY_CYCLE_PERIOD instead of hardcoded value
-    Pred = fun (Sent) -> Sent#sent_packet.sent_time + 3600000 > Now end,
+    CutoffTime = Now - ?DUTY_CYCLE_PERIOD_MS,
+    Pred = fun (Sent) -> Sent#sent_packet.sent_time > CutoffTime end,
     lists:takewhile(Pred, SentPackets).
+
+%% @doc Based on previously sent packets, returns a boolean value if
+%% it is legal to send on Frequency.
+-spec can_send(handle(), number()) -> boolean().
+can_send(Handle, Frequency) ->
+    Now = erlang:monotonic_time(millisecond),
+    can_send(Handle, Frequency, Now).
+
+%% @doc Based on previously sent packets, returns a boolean value if
+%% it is legal to send on Frequency at time Now.
+-spec can_send(handle(), number(), integer()) -> boolean().
+can_send({us, SentPackets}, Frequency, Now) ->
+    CutoffTime = Now - ?DWELL_TIME_PERIOD_MS,
+    dwell_time(SentPackets, CutoffTime, Frequency) < ?MAX_DWELL_TIME_MS;
+can_send({eu, _SentPackets}, _Frequency, _Now) ->
+    false.
+
+%% @doc Computes the total time on air for packets sent on Frequency
+%% and no older than CutoffTime.
+-spec dwell_time(list(#sent_packet{}), integer(), number()) -> number().
+dwell_time(SentPackets, CutoffTime, Frequency) ->
+    dwell_time(SentPackets, CutoffTime, Frequency, 0).
+
+-spec dwell_time(list(#sent_packet{}), integer(), number(), number()) -> number().
+dwell_time([P | _], CutoffTime, _Frequency, Acc)
+        when P#sent_packet.sent_time < CutoffTime ->
+    Acc;
+dwell_time([P | T], CutoffTime, Frequency, Acc) when P#sent_packet.frequency == Frequency ->
+    dwell_time(T, CutoffTime, Frequency, Acc + P#sent_packet.time_on_air);
+dwell_time([], _CutoffTime, _Frequency, Acc) ->
+    Acc.
 
 %% @doc Returns total time on air for packet sent with given
 %% parameters.
@@ -152,7 +193,7 @@ new(eu) ->
 new(us) ->
     {us, []}.
 
--spec b2n(atom()) -> integer().
+-spec b2n(boolean()) -> integer().
 b2n(false) ->
     0;
 b2n(true) ->
