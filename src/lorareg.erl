@@ -3,10 +3,12 @@
 -export([
     can_send/3,
     dwell_time/3,
+    dwell_time_period/1,
+    max_dwell_time/1,
     new/1,
     time_on_air/7,
-    track_sent/4,
-    track_sent/10
+    track_sent/10,
+    track_sent/4
 ]).
 
 -record(sent_packet, {
@@ -113,9 +115,11 @@ dwell_time(SentPackets, CutoffTime, Frequency) ->
     dwell_time(SentPackets, CutoffTime, Frequency, 0).
 
 -spec dwell_time(list(#sent_packet{}), integer(), number(), number()) -> number().
-dwell_time([P | _], CutoffTime, _Frequency, Acc) when P#sent_packet.sent_at < CutoffTime ->
+dwell_time([P | _], CutoffTime, _Frequency, Acc) when P#sent_packet.sent_at =< CutoffTime ->
     Acc;
-dwell_time([P | T], CutoffTime, Frequency, Acc) when P#sent_packet.frequency == Frequency ->
+dwell_time([P | T], CutoffTime, Frequency, Acc) when P#sent_packet.frequency /= Frequency ->
+    dwell_time(T, CutoffTime, Frequency, Acc);
+dwell_time([P | T], CutoffTime, Frequency, Acc) ->
     dwell_time(T, CutoffTime, Frequency, Acc + P#sent_packet.time_on_air);
 dwell_time([], _CutoffTime, _Frequency, Acc) ->
     Acc.
@@ -188,3 +192,9 @@ b2n(false) ->
     0;
 b2n(true) ->
     1.
+
+dwell_time_period(Unit) ->
+    erlang:convert_time_unit(?DWELL_TIME_PERIOD_MS, millisecond, Unit).
+
+max_dwell_time(Unit) ->
+    erlang:convert_time_unit(?MAX_DWELL_TIME_MS, millisecond, Unit).

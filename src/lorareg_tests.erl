@@ -25,15 +25,29 @@ time_on_air_test() ->
 
     ok.
 
+dwell_time_test() ->
+    MaxDwell = lorareg:max_dwell_time(millisecond),
+    Period = lorareg:dwell_time_period(millisecond),
+    Chan0 = 0,
+    Chan1 = 1,
+    S0 = lorareg:new(us),
+    S1 = lorareg:track_sent(S0, 0, Chan0, MaxDwell),
+
+    ?assertEqual(false, lorareg:can_send(S1, 0, Chan0)),
+    ?assertEqual(true, lorareg:can_send(S1, 0, Chan1)),
+
+    ?assertEqual(false, lorareg:can_send(S1, 1, Chan0)),
+    ?assertEqual(true, lorareg:can_send(S1, 1, Chan1)),
+
+    ?assertEqual(false, lorareg:can_send(S1, Period - 1, Chan0)),
+    ?assertEqual(true, lorareg:can_send(S1, Period - 1, Chan1)),
+
+    ?assertEqual(true, lorareg:can_send(S1, Period, Chan0)),
+    ?assertEqual(true, lorareg:can_send(S1, Period, Chan1)),
+
+    ok.
+
 %% Converts floating point seconds to integer seconds to remove
 %% floating point ambiguity from test cases.
 ms(Seconds) ->
     erlang:trunc(Seconds * 1000.0).
-
-dwell_time_test() ->
-    S0 = lorareg:new(us),
-    S1 = lorareg:track_sent(S0, 0, 915000000, 400),
-    ?assertEqual(false, lorareg:can_send(S1, 100, 915000000)),
-    ?assertEqual(true,  lorareg:can_send(S1, 500, 915100000)),
-
-    ok.
