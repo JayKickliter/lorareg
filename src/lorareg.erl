@@ -1,17 +1,16 @@
 -module(lorareg).
 
 -export([
-    can_send/2,
     can_send/3,
     dwell_time/3,
     new/1,
     time_on_air/7,
-    track_sent/3,
-    track_sent/9
+    track_sent/4,
+    track_sent/10
 ]).
 
 -record(sent_packet, {
-    sent_time :: number(),
+    sent_at :: number(),
     time_on_air :: number(),
     frequency :: number()
 }).
@@ -43,6 +42,7 @@
 %% This function does not send/transmit itself.
 -spec track_sent(
     Handle :: handle(),
+    SentAt :: number(),
     Frequency :: number(),
     Bandwidth :: number(),
     SpreadingFactor :: integer(),
@@ -55,6 +55,7 @@
     handle().
 track_sent(
     Handle,
+    SentAt,
     Frequency,
     Bandwidth,
     SpreadingFactor,
@@ -73,44 +74,36 @@ track_sent(
         PayloadLen,
         LowDatarateOptimized
     ),
-    track_sent(Handle, Frequency, TimeOnAir).
+    track_sent(Handle, SentAt, Frequency, TimeOnAir).
 
--spec track_sent(handle(), number(), number()) -> handle().
-track_sent({Region, SentPackets}, Frequency, TimeOnAir) ->
-    Now = erlang:monotonic_time(millisecond),
+-spec track_sent(handle(), number(), number(), number()) -> handle().
+track_sent({Region, SentPackets}, SentAt, Frequency, TimeOnAir) ->
     NewSent = #sent_packet{
         frequency = Frequency,
-        sent_time = Now,
+        sent_at = SentAt,
         time_on_air = TimeOnAir
     },
-    {Region, [NewSent | trim_sent(Region, SentPackets, Now)]}.
+    {Region, [NewSent | trim_sent(Region, SentPackets, SentAt)]}.
 
 %% @doc trims list of previous transmissions that are too old and no
 %% longer needed to compute regulatory compliance.
 -spec trim_sent(region(), list(#sent_packet{}), integer()) -> list(#sent_packet{}).
 trim_sent(us, SentPackets, Now) ->
     CutoffTime = Now - ?DWELL_TIME_PERIOD_MS,
-    Pred = fun (Sent) -> Sent#sent_packet.sent_time > CutoffTime end,
+    Pred = fun (Sent) -> Sent#sent_packet.sent_at > CutoffTime end,
     lists:takewhile(Pred, SentPackets);
 trim_sent(eu, SentPackets, Now) ->
     CutoffTime = Now - ?DUTY_CYCLE_PERIOD_MS,
-    Pred = fun (Sent) -> Sent#sent_packet.sent_time > CutoffTime end,
+    Pred = fun (Sent) -> Sent#sent_packet.sent_at > CutoffTime end,
     lists:takewhile(Pred, SentPackets).
-
-%% @doc Based on previously sent packets, returns a boolean value if
-%% it is legal to send on Frequency.
--spec can_send(handle(), number()) -> boolean().
-can_send(Handle, Frequency) ->
-    Now = erlang:monotonic_time(millisecond),
-    can_send(Handle, Frequency, Now).
 
 %% @doc Based on previously sent packets, returns a boolean value if
 %% it is legal to send on Frequency at time Now.
 -spec can_send(handle(), number(), integer()) -> boolean().
-can_send({us, SentPackets}, Frequency, Now) ->
-    CutoffTime = Now - ?DWELL_TIME_PERIOD_MS,
+can_send({us, SentPackets}, AtTime, Frequency) ->
+    CutoffTime = AtTime - ?DWELL_TIME_PERIOD_MS,
     dwell_time(SentPackets, CutoffTime, Frequency) < ?MAX_DWELL_TIME_MS;
-can_send({eu, _SentPackets}, _Frequency, _Now) ->
+can_send({eu, _SentPackets}, _AtTime, _Frequency) ->
     false.
 
 %% @doc Computes the total time on air for packets sent on Frequency
@@ -120,8 +113,7 @@ dwell_time(SentPackets, CutoffTime, Frequency) ->
     dwell_time(SentPackets, CutoffTime, Frequency, 0).
 
 -spec dwell_time(list(#sent_packet{}), integer(), number(), number()) -> number().
-dwell_time([P | _], CutoffTime, _Frequency, Acc)
-        when P#sent_packet.sent_time < CutoffTime ->
+dwell_time([P | _], CutoffTime, _Frequency, Acc) when P#sent_packet.sent_at < CutoffTime ->
     Acc;
 dwell_time([P | T], CutoffTime, Frequency, Acc) when P#sent_packet.frequency == Frequency ->
     dwell_time(T, CutoffTime, Frequency, Acc + P#sent_packet.time_on_air);
