@@ -17,12 +17,12 @@
     frequency :: number()
 }).
 
--type region() :: eu | us.
+-type region() :: 'EU868' | 'US915'.
 
 -type handle() :: {region(), list(#sent_packet{})}.
 
 %% @doc Time over which we keep sent packet statistics for duty-cycle
-%% limited regions (EU).
+%% limited regions (EU868).
 %%
 %% In order to calculate duty cycle, we track every single
 %% transmission 'now' and the previous DUTY_CYCLE_PERIOD_MS of
@@ -31,7 +31,7 @@
 %% state or calculating duty-cycle.
 -define(DUTY_CYCLE_PERIOD_MS, 3600000).
 
-%% Maximum time on air for dell-time limited regions (US).
+%% Maximum time on air for dell-time limited regions (US915).
 %%
 %% See 47 CFR 15.247.
 -define(MAX_DWELL_TIME_MS, 400).
@@ -90,11 +90,11 @@ track_sent({Region, SentPackets}, SentAt, Frequency, TimeOnAir) ->
 %% @doc trims list of previous transmissions that are too old and no
 %% longer needed to compute regulatory compliance.
 -spec trim_sent(region(), list(#sent_packet{}), integer()) -> list(#sent_packet{}).
-trim_sent(us, SentPackets, Now) ->
+trim_sent('US915', SentPackets, Now) ->
     CutoffTime = Now - ?DWELL_TIME_PERIOD_MS,
     Pred = fun (Sent) -> Sent#sent_packet.sent_at > CutoffTime end,
     lists:takewhile(Pred, SentPackets);
-trim_sent(eu, SentPackets, Now) ->
+trim_sent('EU868', SentPackets, Now) ->
     CutoffTime = Now - ?DUTY_CYCLE_PERIOD_MS,
     Pred = fun (Sent) -> Sent#sent_packet.sent_at > CutoffTime end,
     lists:takewhile(Pred, SentPackets).
@@ -102,10 +102,10 @@ trim_sent(eu, SentPackets, Now) ->
 %% @doc Based on previously sent packets, returns a boolean value if
 %% it is legal to send on Frequency at time Now.
 -spec can_send(handle(), number(), integer()) -> boolean().
-can_send({us, SentPackets}, AtTime, Frequency) ->
+can_send({'US915', SentPackets}, AtTime, Frequency) ->
     CutoffTime = AtTime - ?DWELL_TIME_PERIOD_MS,
     dwell_time(SentPackets, CutoffTime, Frequency) < ?MAX_DWELL_TIME_MS;
-can_send({eu, _SentPackets}, _AtTime, _Frequency) ->
+can_send({'EU868', _SentPackets}, _AtTime, _Frequency) ->
     false.
 
 %% @doc Computes the total time on air for packets sent on Frequency
@@ -182,10 +182,10 @@ payload_symbols(
 symbol_duration(Bandwidth, SpreadingFactor) ->
     math:pow(2, SpreadingFactor) / Bandwidth.
 
-new(eu) ->
-    {eu, []};
-new(us) ->
-    {us, []}.
+new('EU868') ->
+    {'EU868', []};
+new('US915') ->
+    {'US915', []}.
 
 -spec b2n(boolean()) -> integer().
 b2n(false) ->

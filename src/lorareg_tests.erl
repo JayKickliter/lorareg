@@ -30,7 +30,7 @@ dwell_time_test() ->
     Period = lorareg:dwell_time_period(millisecond),
     Chan0 = 0,
     Chan1 = 1,
-    S0 = lorareg:new(us),
+    S0 = lorareg:new('US915'),
     S1 = lorareg:track_sent(S0, 0, Chan0, MaxDwell),
 
     ?assertEqual(false, lorareg:can_send(S1, 0, Chan0)),
