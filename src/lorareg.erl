@@ -1,7 +1,7 @@
 -module(lorareg).
 
 -export([
-    can_send/3,
+    can_send/4,
     dwell_time/3,
     dwell_time_period/1,
     max_dwell_time/1,
@@ -101,11 +101,17 @@ trim_sent('EU868', SentPackets, Now) ->
 
 %% @doc Based on previously sent packets, returns a boolean value if
 %% it is legal to send on Frequency at time Now.
--spec can_send(handle(), number(), integer()) -> boolean().
-can_send({'US915', SentPackets}, AtTime, Frequency) ->
+%%
+%%
+-spec can_send(handle(), number(), integer(), number()) -> boolean().
+can_send({'US915', _SentPackets}, _AtTime, _Frequency, TimeOnAir)
+        when TimeOnAir > ?MAX_DWELL_TIME_MS ->
+    false;
+can_send({'US915', SentPackets}, AtTime, Frequency, TimeOnAir) ->
     CutoffTime = AtTime - ?DWELL_TIME_PERIOD_MS,
-    dwell_time(SentPackets, CutoffTime, Frequency) < ?MAX_DWELL_TIME_MS;
-can_send({'EU868', _SentPackets}, _AtTime, _Frequency) ->
+    CurrDwell = dwell_time(SentPackets, CutoffTime, Frequency),
+    CurrDwell + TimeOnAir =< ?MAX_DWELL_TIME_MS;
+can_send({'EU868', _SentPackets}, _AtTime, _Frequency, _TimeOnAir) ->
     false.
 
 %% @doc Computes the total time on air for packets sent on Frequency

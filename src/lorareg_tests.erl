@@ -32,18 +32,19 @@ dwell_time_test() ->
     Chan1 = 1,
     S0 = lorareg:new('US915'),
     S1 = lorareg:track_sent(S0, 0, Chan0, MaxDwell),
+    S2 = lorareg:track_sent(S1, 0, Chan1, MaxDwell div 2),
 
-    ?assertEqual(false, lorareg:can_send(S1, 0, Chan0)),
-    ?assertEqual(true, lorareg:can_send(S1, 0, Chan1)),
+    ?assertEqual(false, lorareg:can_send(S2, 0, Chan0, MaxDwell)),
+    ?assertEqual(true, lorareg:can_send(S2, 0, Chan1, MaxDwell div 2)),
 
-    ?assertEqual(false, lorareg:can_send(S1, 1, Chan0)),
-    ?assertEqual(true, lorareg:can_send(S1, 1, Chan1)),
+    ?assertEqual(false, lorareg:can_send(S2, 1, Chan0, MaxDwell)),
+    ?assertEqual(true, lorareg:can_send(S2, 1, Chan1, MaxDwell div 2)),
 
-    ?assertEqual(false, lorareg:can_send(S1, Period - 1, Chan0)),
-    ?assertEqual(true, lorareg:can_send(S1, Period - 1, Chan1)),
+    ?assertEqual(false, lorareg:can_send(S2, Period - 1, Chan0, MaxDwell)),
+    ?assertEqual(true, lorareg:can_send(S2, Period - 1, Chan1, MaxDwell div 2)),
 
-    ?assertEqual(true, lorareg:can_send(S1, Period, Chan0)),
-    ?assertEqual(true, lorareg:can_send(S1, Period, Chan1)),
+    ?assertEqual(true, lorareg:can_send(S2, Period, Chan0, MaxDwell)),
+    ?assertEqual(true, lorareg:can_send(S2, Period, Chan1, MaxDwell)),
 
     ok.
 
