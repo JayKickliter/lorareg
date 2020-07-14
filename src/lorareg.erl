@@ -104,15 +104,19 @@ trim_sent('EU868', SentPackets, Now) ->
 %%
 %%
 -spec can_send(handle(), number(), integer(), number()) -> boolean().
-can_send({'US915', _SentPackets}, _AtTime, _Frequency, TimeOnAir)
-        when TimeOnAir > ?MAX_DWELL_TIME_MS ->
+can_send(_Handle, _AtTime, _Frequency, TimeOnAir) when TimeOnAir > ?MAX_DWELL_TIME_MS ->
+    %% TODO: double check that ETSI's max time on air is the same as
+    %% FCC.
     false;
 can_send({'US915', SentPackets}, AtTime, Frequency, TimeOnAir) ->
     CutoffTime = AtTime - ?DWELL_TIME_PERIOD_MS,
     CurrDwell = dwell_time(SentPackets, CutoffTime, Frequency),
     CurrDwell + TimeOnAir =< ?MAX_DWELL_TIME_MS;
-can_send({'EU868', _SentPackets}, _AtTime, _Frequency, _TimeOnAir) ->
-    false.
+can_send({'EU868', SentPackets}, AtTime, Frequency, TimeOnAir) ->
+    CutoffTime = AtTime - ?DUTY_CYCLE_PERIOD_MS,
+    CurrDwell = dwell_time(SentPackets, CutoffTime, Frequency),
+    OnePercent = 0.01,
+    (CurrDwell + TimeOnAir) / ?DUTY_CYCLE_PERIOD_MS < OnePercent.
 
 %% @doc Computes the total time on air for packets sent on Frequency
 %% and no older than CutoffTime.
