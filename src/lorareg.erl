@@ -5,11 +5,6 @@
 %% transmission capabilities itself. Instead, the API provides its
 %% core functionality through `track_sent/4', `can_send/4', and
 %% `time_on_air/7'.
-%%
-%% TODO: `can_send/4' could be more granular (and therefore more
-%% strict and correct) by taking into account packets which are older
-%% than the region's period of consideration but, due to their time on
-%% air, extend into the period of consideration.
 -module(lorareg).
 
 -export([
@@ -120,15 +115,21 @@ trim_sent('EU868', SentPackets, Now) ->
 %% it is legal to send on Frequency at time Now.
 %%
 %%
--spec can_send(handle(), number(), integer(), number()) -> boolean().
+-spec can_send(
+    Handle :: handle(),
+    AtTime :: number(),
+    Frequency :: integer(),
+    TimeOnAir :: number()
+) ->
+    boolean().
 can_send(_Handle, _AtTime, _Frequency, TimeOnAir) when TimeOnAir > ?MAX_DWELL_TIME_MS ->
     %% TODO: double check that ETSI's max time on air is the same as
     %% FCC.
     false;
 can_send({'US915', SentPackets}, AtTime, Frequency, TimeOnAir) ->
-    CutoffTime = AtTime - ?DWELL_TIME_PERIOD_MS,
-    CurrDwell = dwell_time(SentPackets, CutoffTime, Frequency),
-    CurrDwell + TimeOnAir =< ?MAX_DWELL_TIME_MS;
+    CutoffTime = AtTime - ?DWELL_TIME_PERIOD_MS + TimeOnAir,
+    ProjectedDwellTime = dwell_time(SentPackets, CutoffTime, Frequency) + TimeOnAir,
+    ProjectedDwellTime =< ?MAX_DWELL_TIME_MS;
 can_send({'EU868', SentPackets}, AtTime, Frequency, TimeOnAir) ->
     CutoffTime = AtTime - ?DUTY_CYCLE_PERIOD_MS,
     CurrDwell = dwell_time(SentPackets, CutoffTime, Frequency),
@@ -142,10 +143,19 @@ dwell_time(SentPackets, CutoffTime, Frequency) ->
     dwell_time(SentPackets, CutoffTime, Frequency, 0).
 
 -spec dwell_time(list(#sent_packet{}), integer(), number(), number()) -> number().
-dwell_time([P | _], CutoffTime, _Frequency, Acc) when P#sent_packet.sent_at =< CutoffTime ->
-    Acc;
+%% Scenario 1: entire packet sent before CutoffTime
+dwell_time([P | T], CutoffTime, Frequency, Acc)
+        when P#sent_packet.sent_at + P#sent_packet.time_on_air < CutoffTime ->
+    dwell_time(T, CutoffTime, Frequency, Acc);
+%% Scenario 2: packet sent on non-relevant frequency.
 dwell_time([P | T], CutoffTime, Frequency, Acc) when P#sent_packet.frequency /= Frequency ->
     dwell_time(T, CutoffTime, Frequency, Acc);
+%% Scenario 3: Packet started before CutoffTime but finished after CutoffTime.
+dwell_time([P | T], CutoffTime, Frequency, Acc) when P#sent_packet.sent_at =< CutoffTime ->
+    RelevantTimeOnAir = P#sent_packet.time_on_air - (CutoffTime - P#sent_packet.sent_at),
+    true = RelevantTimeOnAir >= 0,
+    dwell_time(T, CutoffTime, Frequency, Acc + RelevantTimeOnAir);
+%% Scenario 4: 100 % of packet transmission after CutoffTime.
 dwell_time([P | T], CutoffTime, Frequency, Acc) ->
     dwell_time(T, CutoffTime, Frequency, Acc + P#sent_packet.time_on_air);
 dwell_time([], _CutoffTime, _Frequency, Acc) ->
