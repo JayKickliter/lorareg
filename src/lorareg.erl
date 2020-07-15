@@ -1,3 +1,15 @@
+%% @doc This module provides time-on-air regulatory compliance for the
+%% EU868 and US915 ISM bands.
+%%
+%% This module does not interface with hardware or provide any
+%% transmission capabilities itself. Instead, the API provides its
+%% core functionality through `track_sent/4', `can_send/4', and
+%% `time_on_air/7'.
+%%
+%% TODO: `can_send/4' could be more granular (and therefore more
+%% strict and correct) by taking into account packets which are older
+%% than the region's period of consideration but, due to their time on
+%% air, extend into the period of consideration.
 -module(lorareg).
 
 -export([
@@ -11,6 +23,11 @@
     track_sent/4
 ]).
 
+-export_type([
+    region/0,
+    handle/0
+]).
+
 -record(sent_packet, {
     sent_at :: number(),
     time_on_air :: number(),
@@ -19,7 +36,7 @@
 
 -type region() :: 'EU868' | 'US915'.
 
--type handle() :: {region(), list(#sent_packet{})}.
+-opaque handle() :: {region(), list(#sent_packet{})}.
 
 %% @doc Time over which we keep sent packet statistics for duty-cycle
 %% limited regions (EU868).
@@ -147,7 +164,7 @@ dwell_time([], _CutoffTime, _Frequency, Acc) ->
     PayloadLen :: integer(),
     LowDatarateOptimized :: boolean()
 ) ->
-    float().
+    Milliseconds :: float().
 time_on_air(
     Bandwidth,
     SpreadingFactor,
@@ -192,6 +209,8 @@ payload_symbols(
 symbol_duration(Bandwidth, SpreadingFactor) ->
     math:pow(2, SpreadingFactor) / Bandwidth.
 
+%% @doc Returns a new handle for the given region.
+-spec new(Region :: region()) -> handle().
 new('EU868') ->
     {'EU868', []};
 new('US915') ->
