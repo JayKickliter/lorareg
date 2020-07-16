@@ -5,23 +5,23 @@
 %% Test cases generated with https://www.loratools.nl/#/airtime and
 %% truncated to milliseconds.
 us_time_on_air_test() ->
-    ?assertEqual(991, ms(lorareg:time_on_air(125.0e3, 12, 5, 8, true, 7, true))),
-    ?assertEqual(2465, ms(lorareg:time_on_air(125.0e3, 12, 5, 8, true, 51, true))),
+    ?assertEqual(991, ms(lorareg:time_on_air(125.0e3, 12, 5, 8, true, 7))),
+    ?assertEqual(2465, ms(lorareg:time_on_air(125.0e3, 12, 5, 8, true, 51))),
 
-    ?assertEqual(495, ms(lorareg:time_on_air(125.0e3, 11, 5, 8, true, 7, true))),
-    ?assertEqual(1314, ms(lorareg:time_on_air(125.0e3, 11, 5, 8, true, 51, true))),
+    ?assertEqual(495, ms(lorareg:time_on_air(125.0e3, 11, 5, 8, true, 7))),
+    ?assertEqual(1314, ms(lorareg:time_on_air(125.0e3, 11, 5, 8, true, 51))),
 
-    ?assertEqual(247, ms(lorareg:time_on_air(125.0e3, 10, 5, 8, true, 7, false))),
-    ?assertEqual(616, ms(lorareg:time_on_air(125.0e3, 10, 5, 8, true, 51, false))),
+    ?assertEqual(247, ms(lorareg:time_on_air(125.0e3, 10, 5, 8, true, 7))),
+    ?assertEqual(616, ms(lorareg:time_on_air(125.0e3, 10, 5, 8, true, 51))),
 
-    ?assertEqual(123, ms(lorareg:time_on_air(125.0e3, 9, 5, 8, true, 7, false))),
-    ?assertEqual(328, ms(lorareg:time_on_air(125.0e3, 9, 5, 8, true, 51, false))),
+    ?assertEqual(123, ms(lorareg:time_on_air(125.0e3, 9, 5, 8, true, 7))),
+    ?assertEqual(328, ms(lorareg:time_on_air(125.0e3, 9, 5, 8, true, 51))),
 
-    ?assertEqual(72, ms(lorareg:time_on_air(125.0e3, 8, 5, 8, true, 7, false))),
-    ?assertEqual(184, ms(lorareg:time_on_air(125.0e3, 8, 5, 8, true, 51, false))),
+    ?assertEqual(72, ms(lorareg:time_on_air(125.0e3, 8, 5, 8, true, 7))),
+    ?assertEqual(184, ms(lorareg:time_on_air(125.0e3, 8, 5, 8, true, 51))),
 
-    ?assertEqual(36, ms(lorareg:time_on_air(125.0e3, 7, 5, 8, true, 7, false))),
-    ?assertEqual(102, ms(lorareg:time_on_air(125.0e3, 7, 5, 8, true, 51, false))),
+    ?assertEqual(36, ms(lorareg:time_on_air(125.0e3, 7, 5, 8, true, 7))),
+    ?assertEqual(102, ms(lorareg:time_on_air(125.0e3, 7, 5, 8, true, 51))),
 
     ok.
 

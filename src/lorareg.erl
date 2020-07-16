@@ -4,7 +4,7 @@
 %% This module does not interface with hardware or provide any
 %% transmission capabilities itself. Instead, the API provides its
 %% core functionality through `track_sent/4', `can_send/4', and
-%% `time_on_air/7'.
+%% `time_on_air/6'.
 -module(lorareg).
 
 -export([
@@ -13,8 +13,8 @@
     dwell_time_period/1,
     max_dwell_time/1,
     new/1,
-    time_on_air/7,
-    track_sent/10,
+    time_on_air/6,
+    track_sent/9,
     track_sent/4
 ]).
 
@@ -63,8 +63,7 @@
     CodeRate :: integer(),
     PreambleSymbols :: integer(),
     ExplicitHeader :: boolean(),
-    PayloadLen :: integer(),
-    LowDatarateOptimized :: boolean()
+    PayloadLen :: integer()
 ) ->
     handle().
 track_sent(
@@ -76,8 +75,7 @@ track_sent(
     CodeRate,
     PreambleSymbols,
     ExplicitHeader,
-    PayloadLen,
-    LowDatarateOptimized
+    PayloadLen
 ) ->
     TimeOnAir = time_on_air(
         Bandwidth,
@@ -85,8 +83,7 @@ track_sent(
         CodeRate,
         PreambleSymbols,
         ExplicitHeader,
-        PayloadLen,
-        LowDatarateOptimized
+        PayloadLen
     ),
     track_sent(Handle, SentAt, Frequency, TimeOnAir).
 
@@ -172,8 +169,7 @@ dwell_time([], _CutoffTime, _Frequency, Acc) ->
     CodeRate :: integer(),
     PreambleSymbols :: integer(),
     ExplicitHeader :: boolean(),
-    PayloadLen :: integer(),
-    LowDatarateOptimized :: boolean()
+    PayloadLen :: integer()
 ) ->
     Milliseconds :: float().
 time_on_air(
@@ -182,8 +178,7 @@ time_on_air(
     CodeRate,
     PreambleSymbols,
     ExplicitHeader,
-    PayloadLen,
-    LowDatarateOptimized
+    PayloadLen
 ) ->
     SymbolDuration = symbol_duration(Bandwidth, SpreadingFactor),
     PayloadSymbols = payload_symbols(
@@ -191,7 +186,7 @@ time_on_air(
         CodeRate,
         ExplicitHeader,
         PayloadLen,
-        LowDatarateOptimized
+        (Bandwidth =< 125000) and (SpreadingFactor >= 11)
     ),
     SymbolDuration * (4.25 + PreambleSymbols + PayloadSymbols).
 
