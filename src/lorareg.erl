@@ -97,17 +97,18 @@ track_sent({Region, SentPackets}, SentAt, Frequency, TimeOnAir) ->
         sent_at = SentAt,
         time_on_air = TimeOnAir
     },
-    {Region, [NewSent | trim_sent(Region, SentPackets, SentAt)]}.
+    {Region, trim_sent(Region, [NewSent | SentPackets])}.
 
-%% @doc trims list of previous transmissions that are too old and no
-%% longer needed to compute regulatory compliance.
--spec trim_sent(region(), list(#sent_packet{}), integer()) -> list(#sent_packet{}).
-trim_sent('US915', SentPackets, Now) ->
-    CutoffTime = Now - ?DWELL_TIME_PERIOD_MS,
+-spec trim_sent(region(), list(#sent_packet{})) -> list(#sent_packet{}).
+trim_sent(Region, SentPackets = [NewSent, LastSent | _])
+        when NewSent#sent_packet.sent_at < LastSent#sent_packet.sent_at ->
+    trim_sent(Region, lists:sort(fun (A, B) -> A > B end, SentPackets));
+trim_sent('US915', SentPackets = [H | _]) ->
+    CutoffTime = H#sent_packet.sent_at - ?DWELL_TIME_PERIOD_MS,
     Pred = fun (Sent) -> Sent#sent_packet.sent_at > CutoffTime end,
     lists:takewhile(Pred, SentPackets);
-trim_sent('EU868', SentPackets, Now) ->
-    CutoffTime = Now - ?DUTY_CYCLE_PERIOD_MS,
+trim_sent('EU868', SentPackets = [H | _]) ->
+    CutoffTime = H#sent_packet.sent_at - ?DUTY_CYCLE_PERIOD_MS,
     Pred = fun (Sent) -> Sent#sent_packet.sent_at > CutoffTime end,
     lists:takewhile(Pred, SentPackets).
 
